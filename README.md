@@ -108,6 +108,10 @@ pwsh -File install-task.ps1   # 注册：每天 10:00、15:00、22:00 各运行�
 没能唤醒或关机了的话，开机后会补跑一次（综合采购除外，见上文「关于综合采购」）。
 删除定时任务：`Unregister-ScheduledTask -TaskName TenderAlert -Confirm:$false`
 
+### 部署到国内 Linux 云服务器
+
+如果希望 7×24 小时在云端无人值守托管，可使用 Linux 入口 [run.sh](run.sh) 和一键初始化脚本 [deploy/setup-linux.sh](deploy/setup-linux.sh)，完整迁移步骤见 [deploy/DEPLOY.md](deploy/DEPLOY.md)。
+
 ## 出问题时
 
 - **邮件发送失败**（授权码过期、网络断了）：日志里有原因，邮件内容另存到 `previews/`，没发出去的公告下次运行会重发。

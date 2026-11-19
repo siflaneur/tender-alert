@@ -119,6 +119,21 @@ class ShmetroParseTest(unittest.TestCase):
                     mock.patch.object(shmetro, "_render", side_effect=AssertionError("不该打开页面")):
                 self.assertEqual(shmetro.fetch(object(), CFG, SINCE), [], hour)
 
+    def test_browser_discovery_supports_env_and_linux_chromium(self):
+        with mock.patch.dict("os.environ", {"CHROME_BIN": "/opt/custom-chromium"}, clear=False), \
+                mock.patch("os.path.isfile", side_effect=lambda p: p == "/opt/custom-chromium"):
+            self.assertEqual(shmetro._browser(), "/opt/custom-chromium")
+
+        with mock.patch.dict("os.environ", {"CHROME_BIN": ""}, clear=False), \
+                mock.patch("os.path.isfile", return_value=False), \
+                mock.patch("shutil.which", side_effect=lambda n: "/usr/bin/chromium" if n == "chromium" else None):
+            self.assertEqual(shmetro._browser(), "/usr/bin/chromium")
+
+    def test_now_uses_utc_plus_8(self):
+        now = shmetro._now()
+        self.assertIsNotNone(now.tzinfo)
+        self.assertEqual(now.utcoffset().total_seconds(), 8 * 3600)
+
 
 if __name__ == "__main__":
     unittest.main()

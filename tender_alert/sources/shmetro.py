@@ -24,7 +24,7 @@ import re
 import shutil
 import subprocess
 import tempfile
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 
 from bs4 import BeautifulSoup
 
@@ -58,24 +58,50 @@ _TABS = {
 _CONTENT_ID_RE = re.compile(r"^(?:tagContent(?:Mj)?|openBiddingContent)\d+$")
 _DATE_RE = re.compile(r"\[(\d{4})(\d{2})(\d{2})\]")
 
+_CST = timezone(timedelta(hours=8))
+
 _CHROME_CANDIDATES = (
     r"C:\Program Files\Google\Chrome\Application\chrome.exe",
     r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
     os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
     r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
     r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
+    "/snap/bin/chromium",
+)
+
+_CHROME_NAMES = (
+    "chrome.exe",
+    "chrome",
+    "msedge.exe",
+    "msedge",
+    "chromium",
+    "chromium-browser",
+    "google-chrome",
+    "google-chrome-stable",
+    "microsoft-edge",
 )
 
 
 def _browser() -> str:
+    env_bin = os.environ.get("CHROME_BIN", "").strip()
+    if env_bin:
+        if os.path.isfile(env_bin):
+            return env_bin
+        found = shutil.which(env_bin)
+        if found:
+            return found
     for path in _CHROME_CANDIDATES:
         if path and os.path.isfile(path):
             return path
-    for name in ("chrome.exe", "chrome", "msedge.exe", "msedge"):
+    for name in _CHROME_NAMES:
         found = shutil.which(name)
         if found:
             return found
-    raise RuntimeError("找不到 Chrome 或 Edge，申通地铁来源需要本机浏览器渲染页面")
+    raise RuntimeError("找不到 Chrome / Chromium / Edge，申通地铁来源需要本机浏览器渲染页面")
 
 
 def _render() -> str:
@@ -180,7 +206,7 @@ def _parse(html: str) -> list[Notice]:
 
 
 def _now() -> datetime:
-    return datetime.now()  # 本机就在上海时区
+    return datetime.now(_CST)  # 固定按北京时间判断开放时段，兼容默认 UTC 时区的云服务器
 
 
 def fetch(session, cfg: Config, since: date) -> list[Notice]:

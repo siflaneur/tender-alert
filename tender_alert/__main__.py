@@ -302,7 +302,7 @@ def update_archive_csv(touched_since: str | None) -> None:
 
 
 def main() -> int:
-    if sys.stdout is not None:
+    if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     args = parse_args()
     setup_logging(args.verbose)
