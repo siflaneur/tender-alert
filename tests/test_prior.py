@@ -147,6 +147,58 @@ class SameProjectMatchTest(unittest.TestCase):
             CFG,
         ))
 
+    def test_rejects_missing_or_different_purchaser_even_with_same_insurance_title(self):
+        # 复现 2026-11-19 误配：综合采购无采购人字段且标题仅写「医疗责任保险」，绝不能认领政采网上别家医院的往年标
+        self.assertFalse(is_same_project(
+            "2027年度医疗责任保险服务项目采购公告",
+            None,
+            date(2026, 11, 19),
+            "2026年医疗责任保险的中标（成交）结果公告",
+            "上海市某社区卫生服务中心",
+            date(2026, 9, 18),
+            CFG,
+        ))
+        # 两家不同医院哪怕标题完全一致（甚至 >=10 字）也绝不互串
+        self.assertFalse(is_same_project(
+            "2027年度医疗责任保险及公众责任保险服务项目",
+            "复旦大学附属华山医院",
+            date(2026, 11, 19),
+            "2026年度医疗责任保险及公众责任保险中标公告",
+            "复旦大学附属肿瘤医院",
+            date(2025, 11, 10),
+            CFG,
+        ))
+        # 当前已知医院，但候选公告没有采购人且标题没写院名，不乱认
+        self.assertFalse(is_same_project(
+            "2027年度医疗责任保险服务项目采购公告",
+            "复旦大学附属华山医院",
+            date(2026, 11, 19),
+            "2026年医疗责任保险的中标（成交）结果公告",
+            None,
+            date(2026, 9, 18),
+            CFG,
+        ))
+        # 同一家医院的往年医疗责任保险仍正常匹配
+        self.assertTrue(is_same_project(
+            "2027年度医疗责任保险服务项目采购公告",
+            "复旦大学附属华山医院",
+            date(2026, 11, 19),
+            "2026年医疗责任保险的中标（成交）结果公告",
+            "复旦大学附属华山医院",
+            date(2026, 9, 18),
+            CFG,
+        ))
+        # 同行政区政府直属机构更名（宝山区计生中心 → 人口和家庭发展指导中心）且标题自带区名+长专项名，仍兼容匹配
+        self.assertTrue(is_same_project(
+            "宝山区失独家庭特扶对象住院综合保险的公开招标公告",
+            "上海市宝山区人口和家庭发展指导中心",
+            date(2026, 11, 3),
+            "宝山区失独家庭特扶对象住院综合保险（三）的中标（成交）结果公告",
+            "上海市宝山区计划生育指导中心",
+            date(2025, 12, 11),
+            CFG,
+        ))
+
 
 class WinnerExtractionTest(unittest.TestCase):
     def test_extracts_from_html_table(self):

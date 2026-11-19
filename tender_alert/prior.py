@@ -77,16 +77,29 @@ _TAIL_CLEAN_RE = re.compile(
     r"(?:项目|服务|产品及服务|供应商|公告|公示|文件)+|[）)]|[-—_]+)+$"
 )
 _GENERIC_CORE_RE = re.compile(
-    r"^(?:上海市?)?(?:车辆|机动车|公务用车|员工|职工|团体|商业|补充医疗|公众责任|雇主责任|财产|"
-    r"综合|社会综合|社区|街道社区|保险|车险|意外险|责任险|服务|采购|管理|年度)+$"
+    r"^(?:上海市?)?(?:车辆|机动车|公务用车|员工|职工|团体|商业|补充医疗|医疗保障|医疗补助|团体医疗|"
+    r"医疗责任|医责|公众责任|雇主责任|雇主|董监高责任|董监高|董事及高级管理人员责任|董责|"
+    r"安全生产责任|安责|校方责任|物流责任|维修人责任|人身意外|团体意外|意外伤害|意外|"
+    r"财产一切|财产综合|财产|企财|机器损坏|机损|船舶|综合福利|社会综合|社区公共管理|社区管理|"
+    r"社区|街道社区|综合|责任|保险|车险|意外险|责任险|财产险|一切险|综合险|医责险|安责险|董责险|"
+    r"雇主险|团意险|企财险|机损险|船舶险|服务|采购|管理|年度|项目|及|与|和|的)+$"
 )
 
-# 从标题中识别下属子公司/具体机构名，避免同集团不同子公司互相串标
+# 从标题中识别下属子公司/具体机构名，避免同集团不同子公司互相串标，也用于无采购人字段时锚定单位
 _SUB_ORG_RE = re.compile(
     r"([一-龥]{2,18}?(?:物业管理|物业|实业|维护保障|维保|数据|技术|信息|物流|市政管理|磁浮交通|"
-    r"东方希杰|联合发展|医院|学院|大学|支队|总队|管理局|航道局|委员会|残联|残疾人联合会|福利院)"
+    r"东方希杰|联合发展|地铁集团|申通地铁|集团|银行(?:上海)?分行|银行|证券|信托|"
+    r"社区卫生服务中心|卫生服务中心|医院|学院|大学|学校|中学|小学|幼儿园|研究院|研究所|"
+    r"博物馆|图书馆|支队|总队|管理局|航道局|委员会|残联|残疾人联合会|福利院)"
     r"(?:股份)?(?:有限)?(?:责任)?(?:公司)?)"
 )
+_DISTRICT_RE = re.compile(
+    r"(浦东新区|黄浦区|徐汇区|长宁区|静安区|普陀区|虹口区|杨浦区|闵行区|宝山区|嘉定区|金山区|松江区|青浦区|奉贤区|崇明区)"
+)
+_INDEPENDENT_UNIT_RE = re.compile(
+    r"(?:医院|卫生服务中心|大学|学院|学校|中学|小学|幼儿园|公司|集团|银行|分行|证券|信托|研究所|研究院|镇|街道)$"
+)
+_TITLE_ORG_NOISE_RE = re.compile(r"保险|车险|意外险|责任险|财产险|综合险|一切险|医疗责任|补充医疗|招标|采购|承保")
 
 # 结果正文中提取中标/成交公司
 _HEADER_COL_RE = re.compile(r"^(?:中标|成交|中选|入选|入围|拟定唯一)?(?:供应商|单位|人|机构|公司)(?:名称)?$")
@@ -179,19 +192,24 @@ def unit_anchor(title: str, purchaser: str | None) -> str | None:
         u = u.strip()
         if len(u) >= 3:
             return u
-    m = _SUB_ORG_RE.search(title or "")
-    if m:
+    cleaned = _NOISE_RE.sub(" ", _PREFIX_CLEAN_RE.sub("", title or "")).strip()
+    cleaned = re.sub(r"^(?:关于)+", "", cleaned).strip()
+    m = _SUB_ORG_RE.search(cleaned)
+    if m and not _TITLE_ORG_NOISE_RE.search(m.group(1)):
         u = re.sub(r"^(?:上海|上海市)", "", m.group(1))
         u = re.sub(r"(?:股份有限公司|有限责任公司|有限公司)$", "", u)
         return u if len(u) >= 3 else m.group(1)
     # 镇/区前缀写在标题开头的情况（如「唐镇社区公共管理综合保险」「虹口区消防救援支队…」）
-    m2 = re.match(r"^(?:20\d{2}年?度?)?(?:上海市?)?([一-龥]{2,8}?(?:镇|街道|支队|总队|医院|学院|大学|博物馆|航道管理局|干部学院))", title or "")
-    return m2.group(1) if m2 else None
+    m2 = re.match(r"^(?:上海市?)?([一-龥]{2,10}?(?:镇|街道|支队|总队|医院|学院|大学|博物馆|航道管理局|干部学院|集团|银行|分行))", cleaned)
+    if m2 and not _TITLE_ORG_NOISE_RE.search(m2.group(1)):
+        return m2.group(1)
+    return None
 
 
 def _sub_org_stem(title: str) -> str | None:
-    m = _SUB_ORG_RE.search(title or "")
-    if not m:
+    cleaned = _NOISE_RE.sub(" ", _PREFIX_CLEAN_RE.sub("", title or "")).strip()
+    m = _SUB_ORG_RE.search(cleaned)
+    if not m or _TITLE_ORG_NOISE_RE.search(m.group(1)):
         return None
     s = re.sub(r"^(?:上海|上海市)", "", m.group(1))
     s = re.sub(r"(?:管理)?(?:股份有限公司|有限责任公司|有限公司|公司)$", "", s)
@@ -244,29 +262,46 @@ def is_same_project(
 
     c_cur, c_cand = core_topic(cur_title), core_topic(cand_title)
     u_cur = unit_anchor(cur_title, cur_purchaser)
-    cand_scope = f"{cand_title} {cand_purchaser or ''}"
-    unit_hit = bool(u_cur and u_cur in cand_scope)
+    # 当前公告既没有真实采购人字段、标题里也未写明具体采购单位时（如综合采购「2027年度医疗责任保险服务项目」），
+    # 无法确认对方身份，绝不拿通用险种名去跨库乱认往年标
+    if not u_cur:
+        return False
 
-    # 核心项目名本身足够具体（不纯是「车辆保险」「社会综合保险」这类泛词）且高度重合
+    u_cand = unit_anchor(cand_title, cand_purchaser)
+    cur_scope = f"{cur_title} {cur_purchaser or ''}"
+    cand_scope = f"{cand_title} {cand_purchaser or ''}"
+    unit_hit = (u_cur in cand_scope) or bool(u_cand and u_cand in cur_scope)
+
     specific_cur = len(c_cur) >= 6 and not _GENERIC_CORE_RE.match(c_cur)
     specific_cand = len(c_cand) >= 6 and not _GENERIC_CORE_RE.match(c_cand)
-    if specific_cur and specific_cand and (c_cur in c_cand or c_cand in c_cur):
-        # 标题本身已足够长且具体（如含区名+专项名，>=10 字）时直接认定同项目（兼容机构改名，如计生中心改家庭发展中心）
-        if min(len(c_cur), len(c_cand)) >= 10:
-            return True
-        if cur_purchaser and cand_purchaser and "（代理）" not in cur_purchaser and "（代理）" not in cand_purchaser:
-            u_cand = unit_anchor(cand_title, cand_purchaser)
-            if u_cur and u_cand and u_cur not in u_cand and u_cand not in u_cur:
-                return False
-        return True
 
-    if unit_hit:
-        # 同一采购单位 + 险种分桶相容（例如中国银联 2025 员工商业医疗保险 → 2026 员工团体保险，曹路镇社区综合保险 → 社会综合保险）
-        if b_cur and b_cand:
-            return True
-        bg_a, bg_b = _char_bigrams(c_cur), _char_bigrams(c_cand)
-        if bg_a and bg_b and len(bg_a & bg_b) / len(bg_a | bg_b) >= 0.45:
-            return True
+    if not unit_hit:
+        # 仅在「同行政区政府直属机构更名」且标题自带相同区名+长专项名时放行
+        # （例如：宝山区计生指导中心 → 宝山区人口和家庭发展指导中心，「宝山区失独家庭特扶对象住院综合保险」）；
+        # 医院、学校、公司、街镇等独立主体采购人不同时一律拒绝
+        if (
+            u_cand
+            and specific_cur
+            and specific_cand
+            and min(len(c_cur), len(c_cand)) >= 10
+            and (c_cur in c_cand or c_cand in c_cur)
+            and not _INDEPENDENT_UNIT_RE.search(u_cur)
+            and not _INDEPENDENT_UNIT_RE.search(u_cand)
+        ):
+            d_cur = _DISTRICT_RE.search(cur_title or "")
+            d_cand = _DISTRICT_RE.search(cand_title or "")
+            if d_cur and d_cand and d_cur.group(1) == d_cand.group(1):
+                return True
+        return False
+
+    # 同一采购单位确认后，再比项目名或险种分桶
+    if specific_cur and specific_cand and (c_cur in c_cand or c_cand in c_cur):
+        return True
+    if b_cur and b_cand:
+        return True
+    bg_a, bg_b = _char_bigrams(c_cur), _char_bigrams(c_cand)
+    if bg_a and bg_b and len(bg_a & bg_b) / len(bg_a | bg_b) >= 0.45:
+        return True
 
     return False
 
@@ -693,6 +728,8 @@ def lookup_prior(row, cfg: Config, store, session, cache: dict | None = None) ->
     source = row["source"]
     if is_one_off_project(title):
         return {"status": "one_off"}
+    if not unit_anchor(title, purchaser):
+        return {"status": "none"}
 
     cur_date = _parse_date(row["publish_date"]) or date.today()
     since_3y = cur_date - timedelta(days=LOOKBACK_YEARS_DAYS)

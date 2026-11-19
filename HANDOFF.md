@@ -23,7 +23,7 @@
 
 | 项目 | 状态 |
 |---|---|
-| 代码 | 18 个数据来源都已实现、启用 17 个（金采网 cfcpn 已停用；edu 含 29 所高校，orgs 含 21 家企事业/金融基础设施/招标代理，子单位支持独立连续失败告警），含往年续标与曾经中标公司核查模块 `prior.py`，支持 Windows 与 Linux 云服务器部署（`run.sh`、`deploy/`），179 个单元测试全部通过（含 16 个启用 HTTP 来源及 cfcpn 的真实响应回放，申通走无头浏览器无样本） |
+| 代码 | 18 个数据来源都已实现、启用 17 个（金采网 cfcpn 已停用；edu 含 29 所高校，orgs 含 21 家企事业/金融基础设施/招标代理，子单位支持独立连续失败告警），含往年续标与曾经中标公司核查模块 `prior.py`，支持 Windows 与 Linux 云服务器部署（`run.sh`、`deploy/`），180 个单元测试全部通过（含 16 个启用 HTTP 来源及 cfcpn 的真实响应回放，申通走无头浏览器无样本） |
 | 真实运行 | 截至 2026-11-18 22:04 持续稳定发信，17 个在用来源全部正常（0 连续失败）；orgs（21 家）已完成首次正式抓取并发出 3 条新命中 |
 | 邮箱 | **已配置**：SMTP 发信（如 QQ 邮箱 `smtp.qq.com:465`），发信/收件邮箱与授权码均在本地 `.env` 配置，不进 git（模板见 `.env.example`） |
 | 定时任务 | **已注册**：每天 **10:00、15:00、22:00** 各运行一次（2026-11-04 用户确认，之前是 10:00 和 20:00 两次）。2026-11-05 起任务开了「唤醒电脑运行」，用户已启用 Windows 的「允许使用唤醒定时器」（只开插电，电池时仍禁用），实际唤醒还没验证（见 §9）。重新注册脚本是 `install-task.ps1`（2026-11-19 已重新注册，45 分钟超时上限已生效） |
@@ -410,3 +410,4 @@ data/ logs/ previews/ exports/   运行时生成，都在 .gitignore 里；expor
 - 2026-11-19 · DeepSeek Harness（Gemini 4 Neon） · `tender_alert/mailer.py`、`tests/test_core.py`、`HANDOFF.md` · 按用户要求精简邮件页脚文案，删去「关键词等设置在 config.toml 里修改。」，仅保留「由 tender-alert 自动发送。」 · 177 个测试全部通过
 - 2026-11-19 · DeepSeek Harness（Gemini 4 Neon） · `CLAUDE.md`、`HANDOFF.md`、`需求.md`、`config.toml` · 公开推送前脱敏：移除文档中的本机绝对路径、个人邮箱及业务规划说明和历史排查记录中的真实 IP，并更新远程仓库状态说明 · 文档与配置注释改动，177 个测试全部通过
 - 2026-11-19 · DeepSeek Harness（Gemini 4 Neon） · `tender_alert/sources/shmetro.py`、`tender_alert/__main__.py`、`tests/test_shmetro_source.py`、`run.sh`、`.gitattributes`、`deploy/{setup-linux.sh,DEPLOY.md}`、`README.md`、`HANDOFF.md` · 适配国内 Linux 云服务器部署：`shmetro` 支持 Linux `chromium`/`google-chrome` 自动发现与 `CHROME_BIN` 环境变量，开放时段判定固定使用东八区避免 UTC 服务器误跳过；新增 `run.sh`、Ubuntu 一键初始化与 `crontab` 注册脚本 `deploy/setup-linux.sh` 及完整迁移指南 `deploy/DEPLOY.md`，并用 `.gitattributes` 强制 `.sh` 保持 LF 换行 · 179 个测试全部通过
+- 2026-11-19 · DeepSeek Harness（Gemini 4 Neon） · `tender_alert/prior.py`、`tests/test_prior.py`、`HANDOFF.md` · 修复往年核查跨采购人误配：补全 `_GENERIC_CORE_RE` 通用险种词（含医疗责任保险等），强化 `is_same_project` 要求必须先确认相同采购人/单位锚点（当前公告无采购人且标题未写单位时不再跨库乱认，并跳过无效外网查询；同行政区直属机构更名仅在非独立医院/学校/公司/街镇且标题自带相同区名+长专项名时放行），同时修正本地库 `#79` 误配记录并重导历史 CSV · 180 个测试全部通过
